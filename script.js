@@ -4,6 +4,11 @@
   const STORAGE_KEY = 'serverless-shop-items-final';
   let items = [];
 
+  // ✅ API endpoints
+  const API_BASE_URL = "https://2j2cydoqi9.execute-api.us-east-1.amazonaws.com/prod";
+  const PRODUCTS_URL = `${API_BASE_URL}/Products`;
+  const ORDER_URL = `${API_BASE_URL}/Order`;
+
   // DOM refs
   const grid = $('grid');
   const emptyState = $('emptyState');
@@ -33,7 +38,7 @@
 
   let editingId = null;
 
-  // default items: the four AWS services with local asset image names and one-line descriptions
+  // default items (fallback)
   function defaultItems() {
     const now = Date.now();
     return [
@@ -76,8 +81,55 @@
     ];
   }
 
-  function init() {
-    loadFromStorage();
+  // ✅ Fetch products from Lambda
+  async function fetchProducts() {
+    try {
+      const res = await fetch(PRODUCTS_URL);
+      if (!res.ok) throw new Error(`Failed to fetch products: ${res.status}`);
+      const data = await res.json();
+      console.log("Fetched products:", data);
+      return data;
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      return [];
+    }
+  }
+
+  // ✅ Fetch orders from Lambda (optional future use)
+  async function fetchOrders() {
+    try {
+      const res = await fetch(ORDER_URL);
+      if (!res.ok) throw new Error(`Failed to fetch orders: ${res.status}`);
+      const data = await res.json();
+      console.log("Fetched orders:", data);
+      return data;
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      return [];
+    }
+  }
+
+  // ✅ Initialization
+  async function init() {
+    try {
+      const products = await fetchProducts();
+      if (products && products.length > 0) {
+        items = products.map(p => ({
+          id: p.product_id || ('p-' + Date.now()),
+          title: p.name || 'Unknown Product',
+          description: 'Fetched from AWS DynamoDB',
+          price: p.price || 0,
+          tag: 'aws',
+          image: 'assets/aws.svg',
+          createdAt: Date.now()
+        }));
+      } else {
+        loadFromStorage();
+      }
+    } catch (e) {
+      console.error("Error during init:", e);
+      loadFromStorage();
+    }
     bindUI();
     render();
   }
@@ -90,6 +142,7 @@
       items = defaultItems();
     }
   }
+
   function saveToStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }
@@ -133,6 +186,7 @@
     }
     setTimeout(() => itemImage.focus(), 120);
   }
+
   function closePanelFn() {
     if (!panel) return;
     panel.setAttribute('aria-hidden', 'true');
@@ -147,7 +201,7 @@
     const description = itemDesc.value.trim();
     const price = parseFloat(itemPrice.value) || 0;
     const tag = itemTag.value.trim();
-    const image = itemImage.value.trim(); // can be external URL or left blank to use a local default
+    const image = itemImage.value.trim();
 
     if (editingId) {
       const idx = items.findIndex(it => it.id === editingId);
@@ -170,6 +224,7 @@
     saveToStorage();
     render();
   }
+
   function editItem(id) {
     const it = items.find(x => x.id === id);
     if (it) openPanel(it);
@@ -197,11 +252,11 @@
   function applySearch(list) {
     const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
     if (!q) return list.slice();
-    return list.filter(it => (
+    return list.filter(it =>
       it.title.toLowerCase().includes(q) ||
       (it.description && it.description.toLowerCase().includes(q)) ||
       (it.tag && it.tag.toLowerCase().includes(q))
-    ));
+    );
   }
 
   function applySort(list) {
@@ -219,13 +274,11 @@
     el.className = 'card';
     el.setAttribute('role','listitem');
 
-    // logo
     if (item.image) {
       const img = document.createElement('img');
       img.className = 'logo';
       img.src = item.image;
       img.alt = item.title + ' logo';
-      // on error (missing file), show placeholder background
       img.onerror = () => {
         img.style.display = 'none';
         const p = document.createElement('div');
@@ -241,7 +294,6 @@
       el.appendChild(ph);
     }
 
-    // content
     const content = document.createElement('div');
     content.className = 'card-content';
     const h3 = document.createElement('h3'); h3.textContent = item.title;
@@ -254,7 +306,6 @@
     content.appendChild(meta);
     el.appendChild(content);
 
-    // actions
     const actions = document.createElement('div'); actions.className = 'card-actions';
     const btnView = document.createElement('button'); btnView.className='btn btn-ghost'; btnView.textContent='View';
     btnView.addEventListener('click', () => {
@@ -294,19 +345,37 @@
   }
 
   function handleAwsFetch() {
-    awsOutput.innerHTML = '⏳ Simulating AWS fetch…';
-    setTimeout(() => { awsOutput.innerHTML = '✅ (Simulated) AWS fetch completed.'; }, 900);
+    awsOutput.innerHTML = '⏳ Fetching data from AWS...';
+    fetchProducts().then(data => {
+      awsOutput.innerHTML = `✅ Loaded ${data.length} products from AWS.`;
+      if (data.length > 0) {
+        items = data.map(p => ({
+          id: p.product_id || ('p-' + Date.now()),
+          title: p.name || 'Unknown Product',
+          description: 'Fetched from AWS',
+          price: p.price || 0,
+          tag: 'aws',
+          image: 'assets/aws.svg',
+          createdAt: Date.now()
+        }));
+        render();
+      }
+    });
   }
 
   function handleClearStorage() {
-    if (!confirm('Reset demo data? This removes local data.')) return;
+    if (!confirm('Reset demo data?')) return;
     localStorage.removeItem(STORAGE_KEY);
     items = defaultItems();
     render();
     awsOutput.innerHTML = 'Local demo data reset.';
   }
 
-  function escapeHtml(s) { return (s+'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function escapeHtml(s) {
+    return (s+'').replace(/[&<>"']/g, m => (
+      {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]
+    ));
+  }
 
   init();
 })();
