@@ -8,19 +8,31 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- TEST PIPELINE UPDATE -->
+
   <!-- Header Section -->
   <header>
-    <h1>🛒 Serverless Shop</h1>
+    <h1>🛒 Serverless Shop — TEST</h1>
     <p>Serverless Shop — a demo project showcasing AWS serverless architecture.<br>
        Built by <strong>Piyush_Pooh</strong> to demonstrate cloud-powered scalability.</p>
   </header>
 
   <main class="wrap">
+    <section>
+      <h2>Demo Controls</h2>
+      <input id="userInput" type="text" placeholder="Type something..." />
+      <button id="submitBtn">Submit</button>
+      <div id="output" class="muted">–</div>
+    </section>
 
-    <!-- AWS Services Grid -->
+    <section>
+      <h2>AWS Simulation</h2>
+      <button id="fetchDataBtn">Fetch AWS Data</button>
+      <div id="awsOutput" class="muted">No AWS interaction yet.</div>
+    </section>
+
     <h2>Core AWS Services Used</h2>
     <div class="grid" id="grid-container">
-
       <div class="card">
         <div class="logo-wrap">
           <img src="images/lambda.svg" alt="AWS Lambda Logo">
@@ -30,7 +42,6 @@
           <p>Runs backend logic on demand — no servers to manage.</p>
         </div>
       </div>
-
       <div class="card">
         <div class="logo-wrap">
           <img src="images/api-gateway.svg" alt="API Gateway Logo">
@@ -40,7 +51,6 @@
           <p>Front-door for API requests exposing your endpoints.</p>
         </div>
       </div>
-
       <div class="card">
         <div class="logo-wrap">
           <img src="images/dynamodb.svg" alt="DynamoDB Logo">
@@ -50,7 +60,6 @@
           <p>Serverless NoSQL DB for high throughput workloads.</p>
         </div>
       </div>
-
       <div class="card">
         <div class="logo-wrap">
           <img src="images/s3.svg" alt="S3 Logo">
@@ -60,7 +69,6 @@
           <p>Object storage for files, media, and static hosting.</p>
         </div>
       </div>
-
       <div class="card">
         <div class="logo-wrap">
           <img src="images/cloudfront.svg" alt="CloudFront Logo">
@@ -70,25 +78,19 @@
           <p>Global CDN to deliver content with low latency.</p>
         </div>
       </div>
-
     </div>
 
-    <!-- Project Architecture Section -->
     <section>
       <h2>Project Architecture</h2>
-      <p>Here is the architecture of the Serverless Shop showcasing AWS serverless components:</p>
-
       <a href="docs/aws-architecture.pdf" target="_blank" class="btn">Download Architecture PDF</a>
       <div class="pdf-viewer">
         <iframe src="docs/aws-architecture.pdf" width="100%" height="500px"></iframe>
       </div>
     </section>
-
   </main>
 
-  <!-- Footer -->
   <footer class="wrap">
-    <p> Built using AWS core services | The Serverless Shop by <strong>Piyush_Pooh</strong></p>
+    <p>🚀 Built using AWS core services | The Serverless Shop by <strong>Piyush_Pooh</strong></p>
   </footer>
 
   <script src="script.js"></script>
