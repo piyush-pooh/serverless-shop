@@ -2,14 +2,12 @@ version: 0.2
 
 phases:
   install:
-    commands:
-      - echo Installing dependencies (none needed for static site)
+    runtime-versions:
+      python: 3.13
   build:
     commands:
-      - echo Building static site (nothing to compile)
-
-artifacts:
-  files:
-    - '**/*'
-  discard-paths: no
-  base-directory: .
+      - echo "Starting build..."
+      - echo "Copying files to S3..."
+      - aws s3 cp index.html s3://serverless-shop-bucket/ --acl public-read
+      - aws s3 cp style.css s3://serverless-shop-bucket/ --acl public-read
+      - aws s3 cp script.js s3://serverless-shop-bucket/ --acl public-read
