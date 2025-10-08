@@ -6,9 +6,7 @@ phases:
       - echo "Installing dependencies (none needed for static site)"
   build:
     commands:
-      - echo "Build phase complete. Copying files to artifacts."
-
+      - echo "Building static site"
 artifacts:
   files:
     - '**/*'
-  discard-paths: no
