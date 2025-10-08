@@ -3,12 +3,12 @@ version: 0.2
 phases:
   install:
     commands:
-      - echo "No dependencies needed for static site"
+      - echo "Installing dependencies (none needed for static site)"
   build:
     commands:
-      - echo "Starting build and copying files to S3..."
-      - aws s3 cp index.html s3://serverless-shop-bucket/ --acl public-read
-      - aws s3 cp style.css s3://serverless-shop-bucket/ --acl public-read
-      - aws s3 cp script.js s3://serverless-shop-bucket/ --acl public-read
-      - aws s3 cp -r images s3://serverless-shop-bucket/images/ --acl public-read
-      - aws s3 cp -r docs s3://serverless-shop-bucket/docs/ --acl public-read
+      - echo "Build phase complete. Copying files to artifacts."
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: no
