@@ -4,48 +4,22 @@
   const STORAGE_KEY = 'serverless-shop-items-final';
   let items = [];
 
-  // API endpoints
-  const BASE_URL = 'https://2j2cydoqi9.execute-api.us-east-1.amazonaws.com/prod';
-  const PRODUCTS_URL = `${BASE_URL}/Products`;
-  const ORDER_URL = `${BASE_URL}/Order`;
-
   // DOM refs
   const grid = $('grid');
   const emptyState = $('emptyState');
-  const openAddPanel = $('openAddPanel');
-  const panel = $('panel');
-  const panelTitle = $('panelTitle');
-  const closePanel = $('closePanel');
-
-  const itemForm = $('itemForm');
-  const itemImage = $('itemImage');
-  const itemTitle = $('itemTitle');
-  const itemDesc = $('itemDesc');
-  const itemPrice = $('itemPrice');
-  const itemTag = $('itemTag');
-  const saveItemBtn = $('saveItemBtn');
-  const cancelItemBtn = $('cancelItemBtn');
-
-  const searchInput = $('searchInput');
-  const sortSelect = $('sortSelect');
-  const submitBtn = $('submitBtn');
-  const userInput = $('userInput');
-  const output = $('output');
-
   const fetchDataBtn = $('fetchDataBtn');
   const awsOutput = $('awsOutput');
   const clearStorageBtn = $('clearStorageBtn');
 
-  let editingId = null;
+  const API_BASE = 'https://2j2cydoqi9.execute-api.us-east-1.amazonaws.com/prod';
 
-  // default items (local fallback)
   function defaultItems() {
     const now = Date.now();
     return [
-      { id: 'svc-lambda', title: 'AWS Lambda', description: 'Serverless compute', price: 0, tag: 'compute', image: 'assets/lambda.svg', createdAt: now - 40000 },
-      { id: 'svc-apigw', title: 'API Gateway', description: 'Managed API gateway', price: 0, tag: 'api', image: 'assets/api-gateway.svg', createdAt: now - 30000 },
-      { id: 'svc-dynamodb', title: 'DynamoDB', description: 'Serverless NoSQL DB', price: 0, tag: 'database', image: 'assets/dynamodb.svg', createdAt: now - 20000 },
-      { id: 'svc-s3', title: 'Amazon S3', description: 'Object storage', price: 0, tag: 'storage', image: 'assets/s3.svg', createdAt: now - 10000 }
+      { id: 'svc-lambda', title: 'AWS Lambda', description: 'Serverless compute that runs your functions on demand.', price: 0.00, tag: 'compute', image: 'assets/lambda.svg', createdAt: now - 40000 },
+      { id: 'svc-apigw', title: 'API Gateway', description: 'Managed API front door for your serverless endpoints.', price: 0.00, tag: 'api', image: 'assets/api-gateway.svg', createdAt: now - 30000 },
+      { id: 'svc-dynamodb', title: 'DynamoDB', description: 'Serverless NoSQL database for high-scale workloads.', price: 0.00, tag: 'database', image: 'assets/dynamodb.svg', createdAt: now - 20000 },
+      { id: 'svc-s3', title: 'Amazon S3', description: 'Object storage for assets, logs, and static hosting.', price: 0.00, tag: 'storage', image: 'assets/s3.svg', createdAt: now - 10000 }
     ];
   }
 
@@ -53,8 +27,6 @@
     loadFromStorage();
     bindUI();
     render();
-    // Auto-fetch products from AWS on page load
-    handleAwsFetch();
   }
 
   function loadFromStorage() {
@@ -71,202 +43,51 @@
   }
 
   function bindUI() {
-    openAddPanel && openAddPanel.addEventListener('click', () => openPanel());
-    closePanel && closePanel.addEventListener('click', closePanelFn);
-    cancelItemBtn && cancelItemBtn.addEventListener('click', (e) => { e.preventDefault(); closePanelFn(); });
-    itemForm && itemForm.addEventListener('submit', handleFormSubmit);
-
-    searchInput && searchInput.addEventListener('input', debounce(180, render));
-    sortSelect && sortSelect.addEventListener('change', render);
-
-    submitBtn && submitBtn.addEventListener('click', handleUserSubmit);
     fetchDataBtn && fetchDataBtn.addEventListener('click', handleAwsFetch);
     clearStorageBtn && clearStorageBtn.addEventListener('click', handleClearStorage);
+  }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && panel && panel.getAttribute('aria-hidden') === 'false') {
-        closePanelFn();
-      }
+  function handleAwsFetch() {
+    awsOutput.innerHTML = '⏳ Fetching Products and Orders from AWS...';
+
+    Promise.all([
+      fetch(`${API_BASE}/Products`).then(res => res.ok ? res.json() : Promise.reject(`Products HTTP ${res.status}`)),
+      fetch(`${API_BASE}/Order`).then(res => res.ok ? res.json() : Promise.reject(`Order HTTP ${res.status}`))
+    ])
+    .then(([products, orders]) => {
+      console.log('Products:', products);
+      console.log('Orders:', orders);
+      awsOutput.innerHTML = '✅ Fetched Products and Orders from AWS!';
+
+      // Merge orders into products if needed, or just render products
+      renderProducts(products);
+    })
+    .catch(err => {
+      console.error(err);
+      awsOutput.innerHTML = '❌ Error fetching from AWS.';
     });
   }
 
-  function openPanel(item = null) {
-    if (!panel) return;
-    panel.setAttribute('aria-hidden', 'false');
-    panel.style.display = 'block';
-    if (item) {
-      panelTitle.textContent = 'Edit Item';
-      itemImage.value = item.image || '';
-      itemTitle.value = item.title;
-      itemDesc.value = item.description || '';
-      itemPrice.value = item.price != null ? item.price : '';
-      itemTag.value = item.tag || '';
-      editingId = item.id;
-    } else {
-      panelTitle.textContent = 'Add Item';
-      itemForm.reset();
-      editingId = null;
-    }
-    setTimeout(() => itemImage.focus(), 120);
-  }
-
-  function closePanelFn() {
-    if (!panel) return;
-    panel.setAttribute('aria-hidden', 'true');
-    panel.style.display = 'none';
-    editingId = null;
-  }
-
-  function handleFormSubmit(e) {
-    e.preventDefault();
-    const title = itemTitle.value.trim();
-    if (!title) { alert('Title required'); itemTitle.focus(); return; }
-    const description = itemDesc.value.trim();
-    const price = parseFloat(itemPrice.value) || 0;
-    const tag = itemTag.value.trim();
-    const image = itemImage.value.trim();
-
-    if (editingId) {
-      const idx = items.findIndex(it => it.id === editingId);
-      if (idx >= 0) {
-        items[idx] = {...items[idx], title, description, price, tag, image};
-        saveToStorage();
-        render();
-      }
-    } else {
-      const newItem = { id: 'i-' + Date.now(), title, description, price, tag, image, createdAt: Date.now() };
-      items.unshift(newItem);
-      saveToStorage();
-      render();
-    }
-    closePanelFn();
-  }
-
-  function deleteItem(id) {
-    items = items.filter(it => it.id !== id);
-    saveToStorage();
-    render();
-  }
-
-  function editItem(id) {
-    const it = items.find(x => x.id === id);
-    if (it) openPanel(it);
-  }
-
-  function render() {
+  function renderProducts(list) {
     if (!grid) return;
-    const filtered = applySearch(items);
-    const sorted = applySort(filtered);
-
     grid.innerHTML = '';
-    if (!sorted.length) {
+    if (!list.length) {
       emptyState.style.display = 'block';
       return;
     } else {
       emptyState.style.display = 'none';
     }
 
-    sorted.forEach(it => {
-      const card = buildCard(it);
-      grid.appendChild(card);
+    list.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = `
+        <h3>${item.name || item.title}</h3>
+        <p>Price: $${item.price != null ? item.price : '0.00'}</p>
+        <p>Product ID: ${item.product_id || item.id}</p>
+      `;
+      grid.appendChild(el);
     });
-  }
-
-  function applySearch(list) {
-    const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
-    if (!q) return list.slice();
-    return list.filter(it => (
-      it.title.toLowerCase().includes(q) ||
-      (it.description && it.description.toLowerCase().includes(q)) ||
-      (it.tag && it.tag.toLowerCase().includes(q))
-    ));
-  }
-
-  function applySort(list) {
-    const sel = sortSelect ? sortSelect.value : 'newest';
-    const copy = list.slice();
-    if (sel === 'newest') copy.sort((a,b) => b.createdAt - a.createdAt);
-    else if (sel === 'oldest') copy.sort((a,b) => a.createdAt - b.createdAt);
-    else if (sel === 'title-asc') copy.sort((a,b) => a.title.localeCompare(b.title));
-    else if (sel === 'title-desc') copy.sort((a,b) => b.title.localeCompare(a.title));
-    return copy;
-  }
-
-  function buildCard(item) {
-    const el = document.createElement('article');
-    el.className = 'card';
-    el.setAttribute('role','listitem');
-
-    if (item.image) {
-      const img = document.createElement('img');
-      img.className = 'logo';
-      img.src = item.image;
-      img.alt = item.title + ' logo';
-      img.onerror = () => { img.style.display='none'; const p = document.createElement('div'); p.className='logo-placeholder'; p.textContent=item.title; el.insertBefore(p, el.firstChild); };
-      el.appendChild(img);
-    } else {
-      const ph = document.createElement('div');
-      ph.className = 'logo-placeholder';
-      ph.textContent = item.title;
-      el.appendChild(ph);
-    }
-
-    const content = document.createElement('div');
-    content.className = 'card-content';
-    const h3 = document.createElement('h3'); h3.textContent = item.title;
-    const p = document.createElement('p'); p.textContent = item.description || '';
-    const meta = document.createElement('div'); meta.className = 'card-meta';
-    meta.textContent = `${item.tag ? item.tag + ' • ' : ''}${formatPrice(item.price)}`;
-    content.appendChild(h3); content.appendChild(p); content.appendChild(meta);
-    el.appendChild(content);
-
-    const actions = document.createElement('div'); actions.className = 'card-actions';
-    const btnView = document.createElement('button'); btnView.className='btn btn-ghost'; btnView.textContent='View';
-    btnView.addEventListener('click', () => { alert(`Title: ${item.title}\n\n${item.description || '—'}\n\nPrice: ${formatPrice(item.price)}`); });
-    const btnEdit = document.createElement('button'); btnEdit.className='btn'; btnEdit.textContent='Edit';
-    btnEdit.addEventListener('click', () => editItem(item.id));
-    const btnRemove = document.createElement('button'); btnRemove.className='btn btn-danger'; btnRemove.textContent='Remove';
-    btnRemove.addEventListener('click', () => { if(confirm(`Delete "${item.title}"?`)) deleteItem(item.id); });
-    actions.appendChild(btnView); actions.appendChild(btnEdit); actions.appendChild(btnRemove);
-    el.appendChild(actions);
-    return el;
-  }
-
-  function formatPrice(n) { if(n==null) return '—'; return `$${Number(n).toFixed(2)}`; }
-  function debounce(ms, fn) { let t = null; return function(...args){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,args), ms); }; }
-
-  function handleUserSubmit() {
-    const v = userInput ? userInput.value.trim() : '';
-    if(!v) output.innerHTML='⚠️ Please type something.';
-    else { output.innerHTML=`✅ You typed: <strong>${escapeHtml(v)}</strong>`; userInput.value=''; }
-  }
-
-  // ========== REAL AWS FETCH ==========
-  async function handleAwsFetch() {
-    awsOutput.innerHTML = '⏳ Fetching data from AWS...';
-    try {
-      const res = await fetch(PRODUCTS_URL);
-      if (!res.ok) throw new Error(`Failed to fetch products: ${res.status}`);
-      const data = await res.json();
-
-      awsOutput.innerHTML = `✅ Loaded ${data.length} products from AWS.`;
-
-      if(data.length > 0) {
-        items = data.map(p => ({
-          id: p.product_id || ('p-' + Date.now()),
-          title: p.name || 'Unknown Product',
-          description: 'Fetched from AWS DynamoDB',
-          price: p.price || 0,
-          tag: 'aws',
-          image: 'assets/aws.svg',
-          createdAt: Date.now()
-        }));
-        render();
-      }
-    } catch(err) {
-      console.error("Error fetching from AWS:", err);
-      awsOutput.innerHTML = '❌ Error fetching from AWS.';
-    }
   }
 
   function handleClearStorage() {
@@ -277,7 +98,9 @@
     awsOutput.innerHTML = 'Local demo data reset.';
   }
 
-  function escapeHtml(s) { return (s+'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'" :'&#39;'}[m])); }
+  function render() {
+    renderProducts(items);
+  }
 
   init();
 })();
